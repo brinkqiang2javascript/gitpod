@@ -71,7 +71,7 @@ func forTestingOnlyGetManager(t *testing.T, objects ...runtime.Object) *Manager 
 		},
 	}
 
-	m, err := New(config, fakek8s.NewSimpleClientset(objects...), &layer.Provider{Storage: &storage.PresignedNoopStorage{}})
+	m, err := New(context.Background(), config, fakek8s.NewSimpleClientset(objects...), &layer.Provider{Storage: &storage.PresignedNoopStorage{}})
 	if err != nil {
 		t.Fatalf("cannot create manager: %s", err.Error())
 	}

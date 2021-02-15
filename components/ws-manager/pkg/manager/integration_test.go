@@ -98,7 +98,7 @@ func forIntegrationTestGetManager(t *testing.T) *Manager {
 		EventTraceLog: fmt.Sprintf("/tmp/evts-%x.json", sha256.Sum256([]byte(t.Name()))),
 	}
 
-	m, err := New(config, client, &layer.Provider{Storage: &storage.PresignedNoopStorage{}})
+	m, err := New(context.Background(), config, client, &layer.Provider{Storage: &storage.PresignedNoopStorage{}})
 	if err != nil {
 		t.Fatalf("cannot create manager: %s", err.Error())
 	}
