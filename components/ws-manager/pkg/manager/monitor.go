@@ -29,7 +29,10 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/tools/cache"
 
 	"github.com/alecthomas/repr"
 	"github.com/golang/protobuf/proto"
@@ -124,6 +127,55 @@ func (m *Manager) CreateMonitor() (*Monitor, error) {
 		}
 	}
 	res.eventpool = workpool.NewEventWorkerPool(res.handleEvent)
+
+	m.StateHolder.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			res.enqueueEvent(watch.Event{
+				Type:   watch.Added,
+				Object: obj.(runtime.Object),
+			})
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			if reflect.DeepEqual(oldObj, newObj) {
+				return
+			}
+
+			res.enqueueEvent(watch.Event{
+				Type:   watch.Modified,
+				Object: newObj.(runtime.Object),
+			})
+		},
+		DeleteFunc: func(obj interface{}) {
+			ro, ok := obj.(runtime.Object)
+
+			if !ok {
+				tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+				if !ok {
+					utilruntime.HandleError(fmt.Errorf("couldn't get object from tombstone %+v", obj))
+					return
+				}
+
+				_, ok = tombstone.Obj.(runtime.Object)
+				if !ok {
+					utilruntime.HandleError(fmt.Errorf("tombstone contained object that is not a vc %+v", obj))
+					return
+				}
+
+				return
+			}
+
+			_, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
+			if err != nil {
+				utilruntime.HandleError(err)
+				return
+			}
+
+			res.enqueueEvent(watch.Event{
+				Type:   watch.Deleted,
+				Object: ro,
+			})
+		},
+	})
 
 	return &res, nil
 }

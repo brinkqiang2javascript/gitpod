@@ -14,8 +14,9 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-// Storer ---
 type Storer interface {
+	AddEventHandler(handler cache.ResourceEventHandler)
+
 	ConfigMaps() []*corev1.ConfigMap
 	ConfigMapsWithListOptions(metav1.ListOptions) ([]*corev1.ConfigMap, error)
 
@@ -41,6 +42,7 @@ type stateHolder struct {
 	listers   *listers
 }
 
+// NewStateHolder constructs a new instance of a Storer.
 func NewStateHolder(namespace string, listOptions metav1.ListOptions, resyncPeriod time.Duration, clientset kubernetes.Interface) Storer {
 	store := &stateHolder{
 		namespace: namespace,
@@ -68,21 +70,14 @@ func NewStateHolder(namespace string, listOptions metav1.ListOptions, resyncPeri
 	store.informers.Pod = informerFactory.Core().V1().Pods().Informer()
 	store.listers.Pod.Store = store.informers.Pod.GetStore()
 
-	eventHandlers := cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-		},
-		UpdateFunc: func(oldObj, newObj interface{}) {
-		},
-		DeleteFunc: func(obj interface{}) {
-		},
-	}
-
-	store.informers.ConfigMap.AddEventHandler(eventHandlers)
-	store.informers.Secret.AddEventHandler(eventHandlers)
-	store.informers.Service.AddEventHandler(eventHandlers)
-	store.informers.Pod.AddEventHandler(eventHandlers)
-
 	return store
+}
+
+func (sh stateHolder) AddEventHandler(handler cache.ResourceEventHandler) {
+	sh.informers.ConfigMap.AddEventHandler(handler)
+	sh.informers.Secret.AddEventHandler(handler)
+	sh.informers.Service.AddEventHandler(handler)
+	sh.informers.Pod.AddEventHandler(handler)
 }
 
 func (sh stateHolder) ConfigMaps() []*corev1.ConfigMap {
